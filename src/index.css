@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background-color: #160c28;
+    color: #ffffff;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes popIn {
+  0% { opacity: 0; transform: scale(0.95) translateY(6px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes floatSubtle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-shake {
+  animation: shake 0.35s ease-in-out;
+}
+
+.animate-pop {
+  animation: popIn 0.22s ease-out forwards;
+}
+
+.animate-float-subtle {
+  animation: floatSubtle 4s ease-in-out infinite;
+}
+
+/* Base nocturna inspirada en Quizizz con malla sutil y textura geometrica */
+.quizizz-bg {
+  background-color: #160c28;
+  background-image:
+    radial-gradient(circle at 12% 16%, rgba(168, 85, 247, 0.24), transparent 38%),
+    radial-gradient(circle at 88% 12%, rgba(6, 182, 212, 0.16), transparent 34%),
+    radial-gradient(circle at 80% 88%, rgba(236, 72, 153, 0.18), transparent 40%),
+    radial-gradient(rgba(255, 255, 255, 0.06) 1.2px, transparent 1.2px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 24px 24px;
+}
+
+/* Tarjeta elevada Quizizz */
+.quizizz-card {
+  background-color: #24143d;
+  border: 1px solid rgba(192, 132, 252, 0.22);
+  box-shadow: 0 14px 36px -12px rgba(8, 3, 20, 0.65);
+}
+
+/* Tablero oscuro tipo pizarra de pines para Produccion */
+.corkboard-dark {
+  background-color: #1d1033;
+  background-image: radial-gradient(rgba(192, 132, 252, 0.2) 1.4px, transparent 1.4px);
+  background-size: 22px 22px;
+}
+
+/* Superficie sobria y comoda para el Panel Admin del profesor */
+.admin-bg {
+  background-color: #f3f0fa;
+  background-image:
+    radial-gradient(circle at 90% 8%, rgba(124, 58, 237, 0.08), transparent 36%),
+    radial-gradient(circle at 10% 90%, rgba(236, 72, 153, 0.06), transparent 36%);
+}
