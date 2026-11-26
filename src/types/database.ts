@@ -32,6 +32,16 @@ export interface QuizAttempt {
   created_at: string;
 }
 
+export interface UnitReflection {
+  id: string;
+  user_id: string;
+  unit_id: string;
+  answer_1: string;
+  answer_2: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WallPost {
   id: string;
   user_id: string;
@@ -52,6 +62,7 @@ export interface YoutubeLink {
 
 export interface UnitSettings {
   unit_id: string;
+  practice_wordwall_url: string;
   practice_url: string;
   theory_pdf_url: string | null;
   youtube_links: YoutubeLink[];
@@ -67,4 +78,5 @@ export interface StudentSummary {
   bestAttemptSeconds: number | null;
   lastAttemptSeconds: number | null;
   attempts: QuizAttempt[];
+  reflection: UnitReflection | null;
 }

@@ -6,6 +6,7 @@ import {
   Loader2,
   Plus,
   Save,
+  Sparkles,
   Trash2,
   Youtube,
 } from 'lucide-react';
@@ -18,12 +19,14 @@ export const SettingsTab: React.FC = () => {
   const { settings, loading, refresh } = useUnitSettings('unit-1');
   const { showToast } = useToast();
 
+  const [practiceWordwallUrl, setPracticeWordwallUrl] = useState('');
   const [practiceUrl, setPracticeUrl] = useState('');
   const [theoryPdfUrl, setTheoryPdfUrl] = useState('');
   const [youtubeLinks, setYoutubeLinks] = useState<YoutubeLink[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    setPracticeWordwallUrl(settings.practice_wordwall_url);
     setPracticeUrl(settings.practice_url);
     setTheoryPdfUrl(settings.theory_pdf_url || '');
     setYoutubeLinks(settings.youtube_links);
@@ -49,9 +52,11 @@ export const SettingsTab: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const cleanWordwallUrl = practiceWordwallUrl.trim();
     const cleanPracticeUrl = practiceUrl.trim();
-    if (!cleanPracticeUrl) {
-      showToast('El enlace del juego de Práctica no puede estar vacío.', 'warning');
+
+    if (!cleanWordwallUrl || !cleanPracticeUrl) {
+      showToast('Los dos enlaces de juegos de Práctica son obligatorios.', 'warning');
       return;
     }
 
@@ -68,6 +73,7 @@ export const SettingsTab: React.FC = () => {
     const { error } = await supabase.from('unit_settings').upsert(
       {
         unit_id: 'unit-1',
+        practice_wordwall_url: cleanWordwallUrl,
         practice_url: cleanPracticeUrl,
         theory_pdf_url: cleanPdfUrl,
         youtube_links: cleanedLinks,
@@ -97,42 +103,87 @@ export const SettingsTab: React.FC = () => {
 
   return (
     <form onSubmit={(e) => void handleSave(e)} className="space-y-6">
-      {/* Juego de Práctica */}
-      <section className="bg-white rounded-3xl border border-purple-200/80 p-5 sm:p-7 shadow-xs space-y-4">
+      {/* Juegos de Práctica (Actividad 1 Wordwall + Actividad 2) */}
+      <section className="bg-white rounded-3xl border border-purple-200/80 p-5 sm:p-7 shadow-xs space-y-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
             <Gamepad2 className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-lg font-extrabold text-slate-900">
-              Enlace del botón &quot;Empecemos a jugar&quot; (Práctica)
+              Enlaces de juegos en Práctica (UNIT 1)
             </h2>
             <p className="text-xs sm:text-sm text-slate-500">
-              URL externa que se abrirá en una nueva pestaña cuando el estudiante entre a Práctica.
+              Edita en cualquier momento los dos botones de juego que ven los estudiantes en la
+              etapa de Práctica.
             </p>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2.5">
-          <input
-            type="url"
-            value={practiceUrl}
-            onChange={(e) => setPracticeUrl(e.target.value)}
-            placeholder="https://..."
-            className="flex-1 px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-purple-600 outline-none text-sm"
-            required
-          />
-          {practiceUrl && (
-            <a
-              href={practiceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 text-sm font-bold shrink-0"
-            >
-              <span>Probar enlace</span>
-              <ExternalLink className="w-4 h-4" />
-            </a>
-          )}
+        {/* Actividad 1: Wordwall */}
+        <div className="space-y-1.5">
+          <label
+            htmlFor="wordwall-url"
+            className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-amber-700"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Actividad 1: Empecemos a jugar (Wordwall)</span>
+          </label>
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <input
+              id="wordwall-url"
+              type="url"
+              value={practiceWordwallUrl}
+              onChange={(e) => setPracticeWordwallUrl(e.target.value)}
+              placeholder="https://wordwall.net/play/..."
+              className="flex-1 px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-purple-600 outline-none text-sm"
+              required
+            />
+            {practiceWordwallUrl && (
+              <a
+                href={practiceWordwallUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 text-sm font-bold shrink-0"
+              >
+                <span>Probar enlace</span>
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Actividad 2: Segundo juego */}
+        <div className="space-y-1.5 pt-2 border-t border-slate-100">
+          <label
+            htmlFor="practice-url-2"
+            className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wide text-sky-700"
+          >
+            <Gamepad2 className="w-3.5 h-3.5" />
+            <span>Actividad 2: Más práctica de vocabulario</span>
+          </label>
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <input
+              id="practice-url-2"
+              type="url"
+              value={practiceUrl}
+              onChange={(e) => setPracticeUrl(e.target.value)}
+              placeholder="https://..."
+              className="flex-1 px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:border-purple-600 outline-none text-sm"
+              required
+            />
+            {practiceUrl && (
+              <a
+                href={practiceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 text-sm font-bold shrink-0"
+              >
+                <span>Probar enlace</span>
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
+          </div>
         </div>
       </section>
 

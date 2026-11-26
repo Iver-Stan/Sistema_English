@@ -6,6 +6,7 @@ import {
   ChevronUp,
   CircleDashed,
   Download,
+  HeartHandshake,
   Loader2,
   RefreshCw,
   Search,
@@ -14,6 +15,11 @@ import {
 import { supabase } from '../../lib/supabase';
 import { exportStudentsCsv } from '../../lib/csvExport';
 import { MAX_QUIZ_ATTEMPTS } from '../../lib/unitProgression';
+import {
+  REFLECTION_Q1,
+  REFLECTION_Q2,
+  REFLECTION_TITLE,
+} from '../../data/unit1Reflection';
 import { useToast } from '../../components/ui/Toast';
 import type {
   ActivityKey,
@@ -21,6 +27,7 @@ import type {
   Profile,
   QuizAttempt,
   StudentSummary,
+  UnitReflection,
 } from '../../types/database';
 
 const ACTIVITY_LABELS: { key: ActivityKey; short: string; full: string }[] = [
@@ -39,7 +46,7 @@ export const StudentTrackingTab: React.FC = () => {
 
   const loadTrackingData = useCallback(async () => {
     setLoading(true);
-    const [profilesRes, progressRes, attemptsRes] = await Promise.all([
+    const [profilesRes, progressRes, attemptsRes, reflectionsRes] = await Promise.all([
       supabase
         .from('profiles')
         .select('*')
@@ -51,6 +58,7 @@ export const StudentTrackingTab: React.FC = () => {
         .select('*')
         .eq('unit_id', 'unit-1')
         .order('attempt_number', { ascending: false }),
+      supabase.from('unit_reflections').select('*').eq('unit_id', 'unit-1'),
     ]);
 
     if (profilesRes.error || progressRes.error || attemptsRes.error) {
@@ -62,6 +70,14 @@ export const StudentTrackingTab: React.FC = () => {
     const students = (profilesRes.data as Profile[]) || [];
     const progressList = (progressRes.data as ActivityProgress[]) || [];
     const attemptsList = (attemptsRes.data as QuizAttempt[]) || [];
+    const reflectionsList = (!reflectionsRes.error && reflectionsRes.data
+      ? (reflectionsRes.data as UnitReflection[])
+      : []) as UnitReflection[];
+
+    const reflectionsByUser = new Map<string, UnitReflection>();
+    for (const r of reflectionsList) {
+      reflectionsByUser.set(r.user_id, r);
+    }
 
     const summaryRows: StudentSummary[] = students.map((student) => {
       const progress: Record<ActivityKey, boolean> = {
@@ -109,6 +125,7 @@ export const StudentTrackingTab: React.FC = () => {
         bestAttemptSeconds,
         lastAttemptSeconds,
         attempts: studentAttempts,
+        reflection: reflectionsByUser.get(student.id) ?? null,
       };
     });
 
@@ -254,11 +271,12 @@ export const StudentTrackingTab: React.FC = () => {
                 <tr className="bg-purple-50/70 border-b border-purple-100 text-[11px] font-extrabold uppercase tracking-wider text-purple-900/70">
                   <th className="py-3.5 px-4">Estudiante</th>
                   <th className="py-3.5 px-4">Etapas (UNIT 1)</th>
-                  <th className="py-3.5 px-4 text-center">Progreso</th>
-                  <th className="py-3.5 px-4 text-center">Mejor Nota</th>
-                  <th className="py-3.5 px-4 text-center">Intentos</th>
-                  <th className="py-3.5 px-4 text-center">Velocidad</th>
-                  <th className="py-3.5 px-4 text-right">Historial</th>
+                  <th className="py-3.5 px-3 text-center">Progreso</th>
+                  <th className="py-3.5 px-3 text-center">Mejor Nota</th>
+                  <th className="py-3.5 px-3 text-center">Intentos</th>
+                  <th className="py-3.5 px-3 text-center">Velocidad</th>
+                  <th className="py-3.5 px-3 text-center">Reflexión</th>
+                  <th className="py-3.5 px-4 text-right">Detalle</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
@@ -266,6 +284,7 @@ export const StudentTrackingTab: React.FC = () => {
                   const isExpanded = expandedUserId === row.profile.id;
                   const displayEmail =
                     row.profile.email || row.profile.username || 'Sin correo';
+                  const hasDetail = row.attempts.length > 0 || row.reflection !== null;
 
                   return (
                     <React.Fragment key={row.profile.id}>
@@ -301,7 +320,7 @@ export const StudentTrackingTab: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4 text-center">
+                        <td className="py-3.5 px-3 text-center">
                           <span
                             className={`inline-block px-2.5 py-1 rounded-full text-xs font-extrabold ${
                               row.completedCount === 4
@@ -315,7 +334,7 @@ export const StudentTrackingTab: React.FC = () => {
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4 text-center font-extrabold text-slate-900">
+                        <td className="py-3.5 px-3 text-center font-extrabold text-slate-900">
                           {row.bestScore !== null ? (
                             <span className="text-purple-700">{row.bestScore}/100</span>
                           ) : (
@@ -323,11 +342,11 @@ export const StudentTrackingTab: React.FC = () => {
                           )}
                         </td>
 
-                        <td className="py-3.5 px-4 text-center font-bold text-slate-700">
+                        <td className="py-3.5 px-3 text-center font-bold text-slate-700">
                           {row.attemptsCount} / {MAX_QUIZ_ATTEMPTS}
                         </td>
 
-                        <td className="py-3.5 px-4 text-center text-slate-700">
+                        <td className="py-3.5 px-3 text-center text-slate-700">
                           {row.bestAttemptSeconds !== null ? (
                             <span className="font-semibold">{row.bestAttemptSeconds}s</span>
                           ) : (
@@ -335,14 +354,27 @@ export const StudentTrackingTab: React.FC = () => {
                           )}
                         </td>
 
+                        <td className="py-3.5 px-3 text-center">
+                          {row.reflection ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-extrabold whitespace-nowrap">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              Reflexión ✓
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold">
+                              Pendiente
+                            </span>
+                          )}
+                        </td>
+
                         <td className="py-3.5 px-4 text-right">
-                          {row.attempts.length > 0 ? (
+                          {hasDetail ? (
                             <button
                               type="button"
                               onClick={() => toggleExpand(row.profile.id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-bold transition-colors cursor-pointer"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 text-xs font-bold transition-colors cursor-pointer whitespace-nowrap"
                             >
-                              <span>Ver ({row.attempts.length})</span>
+                              <span>{isExpanded ? 'Ocultar' : 'Ver detalle'}</span>
                               {isExpanded ? (
                                 <ChevronUp className="w-3.5 h-3.5" />
                               ) : (
@@ -350,52 +382,111 @@ export const StudentTrackingTab: React.FC = () => {
                               )}
                             </button>
                           ) : (
-                            <span className="text-xs text-slate-400">Sin intentos</span>
+                            <span className="text-xs text-slate-400">Sin datos</span>
                           )}
                         </td>
                       </tr>
 
                       {isExpanded && (
                         <tr className="bg-purple-50/60">
-                          <td colSpan={7} className="px-4 py-4">
-                            <div className="bg-white rounded-2xl border border-purple-200 p-4">
-                              <p className="text-xs font-extrabold uppercase tracking-wide text-purple-800 mb-3">
-                                Historial de intentos en Valoración — {row.profile.full_name}
-                              </p>
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-xs text-left">
-                                  <thead>
-                                    <tr className="border-b border-slate-200 text-slate-500">
-                                      <th className="py-1.5 pr-4">Intento</th>
-                                      <th className="py-1.5 pr-4">Nota</th>
-                                      <th className="py-1.5 pr-4">Aciertos</th>
-                                      <th className="py-1.5 pr-4">Velocidad</th>
-                                      <th className="py-1.5">Fecha y hora</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-100">
-                                    {row.attempts.map((attempt) => (
-                                      <tr key={attempt.id}>
-                                        <td className="py-2 pr-4 font-bold">
-                                          Intento {attempt.attempt_number} de {MAX_QUIZ_ATTEMPTS}
-                                        </td>
-                                        <td className="py-2 pr-4 font-extrabold text-purple-700">
-                                          {attempt.score}/100
-                                        </td>
-                                        <td className="py-2 pr-4">
-                                          {attempt.correct_answers}/{attempt.total_questions}
-                                        </td>
-                                        <td className="py-2 pr-4">{attempt.duration_seconds}s</td>
-                                        <td className="py-2 text-slate-500">
-                                          {new Date(attempt.created_at).toLocaleString('es-ES', {
-                                            dateStyle: 'short',
-                                            timeStyle: 'short',
-                                          })}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
+                          <td colSpan={8} className="px-4 py-4">
+                            <div className="space-y-4">
+                              {/* Historial de intentos del quiz */}
+                              <div className="bg-white rounded-2xl border border-purple-200 p-4">
+                                <p className="text-xs font-extrabold uppercase tracking-wide text-purple-800 mb-3">
+                                  Historial de intentos en Valoración — {row.profile.full_name}
+                                </p>
+                                {row.attempts.length === 0 ? (
+                                  <p className="text-xs text-slate-500">
+                                    Aún no tiene intentos registrados en el cuestionario.
+                                  </p>
+                                ) : (
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-xs text-left">
+                                      <thead>
+                                        <tr className="border-b border-slate-200 text-slate-500">
+                                          <th className="py-1.5 pr-4">Intento</th>
+                                          <th className="py-1.5 pr-4">Nota</th>
+                                          <th className="py-1.5 pr-4">Aciertos</th>
+                                          <th className="py-1.5 pr-4">Velocidad</th>
+                                          <th className="py-1.5">Fecha y hora</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {row.attempts.map((attempt) => (
+                                          <tr key={attempt.id}>
+                                            <td className="py-2 pr-4 font-bold">
+                                              Intento {attempt.attempt_number} de{' '}
+                                              {MAX_QUIZ_ATTEMPTS}
+                                            </td>
+                                            <td className="py-2 pr-4 font-extrabold text-purple-700">
+                                              {attempt.score}/100
+                                            </td>
+                                            <td className="py-2 pr-4">
+                                              {attempt.correct_answers}/{attempt.total_questions}
+                                            </td>
+                                            <td className="py-2 pr-4">
+                                              {attempt.duration_seconds}s
+                                            </td>
+                                            <td className="py-2 text-slate-500">
+                                              {new Date(attempt.created_at).toLocaleString(
+                                                'es-ES',
+                                                {
+                                                  dateStyle: 'short',
+                                                  timeStyle: 'short',
+                                                }
+                                              )}
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Respuestas de reflexión personal */}
+                              <div className="bg-white rounded-2xl border border-purple-200 p-4 space-y-3">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-xs font-extrabold uppercase tracking-wide text-fuchsia-700 flex items-center gap-1.5">
+                                    <HeartHandshake className="w-4 h-4" />
+                                    {REFLECTION_TITLE}
+                                  </p>
+                                  {row.reflection && (
+                                    <span className="text-[11px] text-slate-400">
+                                      Enviado:{' '}
+                                      {new Date(row.reflection.updated_at).toLocaleString('es-ES', {
+                                        dateStyle: 'short',
+                                        timeStyle: 'short',
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {row.reflection ? (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="rounded-xl bg-purple-50/60 border border-purple-100 p-3.5 space-y-1.5">
+                                      <p className="text-xs font-bold text-slate-800">
+                                        {REFLECTION_Q1}
+                                      </p>
+                                      <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                                        {row.reflection.answer_1}
+                                      </p>
+                                    </div>
+                                    <div className="rounded-xl bg-purple-50/60 border border-purple-100 p-3.5 space-y-1.5">
+                                      <p className="text-xs font-bold text-slate-800">
+                                        {REFLECTION_Q2}
+                                      </p>
+                                      <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                                        {row.reflection.answer_2}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-slate-500">
+                                    El estudiante aún no ha enviado sus respuestas de reflexión.
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </td>

@@ -36,7 +36,7 @@ interface ActivityVisualTheme {
 
 const ACTIVITY_THEMES: Record<ActivityKey, ActivityVisualTheme> = {
   practica: {
-    subtitle: 'Juega y repasa el vocabulario de ropa y colores en inglés.',
+    subtitle: 'Explora y descubre mediante juegos interactivos qué prendas y colores de tu entorno ya reconoces en inglés.',
     icon: <Gamepad2 className="w-6 h-6" />,
     stepBadgeBg: 'bg-cyan-400 text-slate-950',
     availableBorder: 'border-cyan-400/70 shadow-cyan-500/15',
@@ -57,7 +57,7 @@ const ACTIVITY_THEMES: Record<ActivityKey, ActivityVisualTheme> = {
     availableButton: 'bg-fuchsia-500 hover:bg-fuchsia-400 border-fuchsia-700 text-white',
   },
   valoracion: {
-    subtitle: 'Demuestra lo aprendido en el cuestionario final (máximo 2 intentos).',
+    subtitle: 'Resuelve el cuestionario final (máx. 2 intentos) y reflexiona sobre lo aprendido y el respeto cultural.',
     icon: <ClipboardCheck className="w-6 h-6" />,
     stepBadgeBg: 'bg-emerald-400 text-slate-950',
     availableBorder: 'border-emerald-400/70 shadow-emerald-500/15',
@@ -186,23 +186,21 @@ export const Unit1HubPage: React.FC = () => {
                 type="button"
                 aria-disabled={isLocked}
                 onClick={() => handleCardAction(key)}
-                className={`group text-left rounded-3xl p-5 sm:p-6 transition-all flex flex-col justify-between gap-5 ${
-                  isLocked
+                className={`group text-left rounded-3xl p-5 sm:p-6 transition-all flex flex-col justify-between gap-5 ${isLocked
                     ? 'bg-[#1A0F2E]/80 border-2 border-dashed border-purple-400/20 opacity-75 cursor-not-allowed'
                     : isCompleted
                       ? 'quizizz-card border-2 border-emerald-400/60 hover:border-emerald-300 cursor-pointer'
                       : `quizizz-card border-2 ${theme.availableBorder} shadow-lg hover:-translate-y-0.5 cursor-pointer`
-                }`}
+                  }`}
               >
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3">
                       <div
-                        className={`w-12 h-12 rounded-2xl flex items-center justify-center font-extrabold shadow-sm ${
-                          isLocked
+                        className={`w-12 h-12 rounded-2xl flex items-center justify-center font-extrabold shadow-sm ${isLocked
                             ? 'bg-purple-950 text-purple-400 border border-purple-400/20'
                             : theme.stepBadgeBg
-                        }`}
+                          }`}
                       >
                         {isLocked ? <Lock className="w-5 h-5" /> : theme.icon}
                       </div>
@@ -211,9 +209,8 @@ export const Unit1HubPage: React.FC = () => {
                           Etapa {rule.step} de 4
                         </span>
                         <h3
-                          className={`text-xl font-extrabold ${
-                            isLocked ? 'text-purple-200/70' : 'text-white'
-                          }`}
+                          className={`text-xl font-extrabold ${isLocked ? 'text-purple-200/70' : 'text-white'
+                            }`}
                         >
                           {rule.label}
                         </h3>
@@ -239,9 +236,8 @@ export const Unit1HubPage: React.FC = () => {
                   </div>
 
                   <p
-                    className={`text-sm leading-relaxed ${
-                      isLocked ? 'text-purple-300/60' : 'text-purple-100/85'
-                    }`}
+                    className={`text-sm leading-relaxed ${isLocked ? 'text-purple-300/60' : 'text-purple-100/85'
+                      }`}
                   >
                     {theme.subtitle}
                   </p>
@@ -272,11 +268,10 @@ export const Unit1HubPage: React.FC = () => {
                     </span>
                   ) : (
                     <span
-                      className={`inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl text-sm font-extrabold border-b-4 transition-all ${
-                        isCompleted
+                      className={`inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl text-sm font-extrabold border-b-4 transition-all ${isCompleted
                           ? 'bg-emerald-500 hover:bg-emerald-400 border-emerald-700 text-slate-950'
                           : theme.availableButton
-                      }`}
+                        }`}
                     >
                       <span>{isCompleted ? 'Revisar etapa' : 'Empezar ahora'}</span>
                       <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />

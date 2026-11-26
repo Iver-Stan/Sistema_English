@@ -7,11 +7,14 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Clock,
+  Edit3,
+  HeartHandshake,
   History,
   Loader2,
   Lock,
   Play,
   RotateCcw,
+  Save,
   Trophy,
   XCircle,
 } from 'lucide-react';
@@ -20,11 +23,19 @@ import { useUnitProgress } from '../../hooks/useUnitProgress';
 import { supabase } from '../../lib/supabase';
 import { MAX_QUIZ_ATTEMPTS } from '../../lib/unitProgression';
 import { UNIT1_QUIZ_QUESTIONS } from '../../data/unit1Quiz';
+import {
+  REFLECTION_MIN_CHARS,
+  REFLECTION_PLACEHOLDER,
+  REFLECTION_Q1,
+  REFLECTION_Q2,
+  REFLECTION_SUBTITLE,
+  REFLECTION_TITLE,
+} from '../../data/unit1Reflection';
 import { ClothingSvg } from '../../components/illustrations/ClothingSvg';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { useToast } from '../../components/ui/Toast';
 import { UnitActivityGuard } from '../../components/layout/UnitActivityGuard';
-import type { QuizAttempt } from '../../types/database';
+import type { QuizAttempt, UnitReflection } from '../../types/database';
 
 type QuizPhase = 'intro' | 'playing' | 'results';
 
@@ -45,7 +56,7 @@ function formatDuration(seconds: number): string {
 
 export const ValoracionPage: React.FC = () => {
   const { user } = useAuth();
-  const { markCompleted } = useUnitProgress('unit-1');
+  const { progressMap, markCompleted } = useUnitProgress('unit-1');
   const { showToast } = useToast();
 
   const [phase, setPhase] = useState<QuizPhase>('intro');
@@ -53,6 +64,7 @@ export const ValoracionPage: React.FC = () => {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [checkingLimit, setCheckingLimit] = useState(false);
 
+  // Estado del cuestionario
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
@@ -66,28 +78,52 @@ export const ValoracionPage: React.FC = () => {
   } | null>(null);
   const [savingAttempt, setSavingAttempt] = useState(false);
 
+  // Estado de reflexión personal
+  const [reflection, setReflection] = useState<UnitReflection | null>(null);
+  const [answer1, setAnswer1] = useState('');
+  const [answer2, setAnswer2] = useState('');
+  const [editingReflection, setEditingReflection] = useState(false);
+  const [savingReflection, setSavingReflection] = useState(false);
+
   const totalQuestions = UNIT1_QUIZ_QUESTIONS.length;
   const currentQuestion = UNIT1_QUIZ_QUESTIONS[currentIndex];
 
-  const loadAttempts = useCallback(async () => {
+  const loadValoracionData = useCallback(async () => {
     if (!user) return;
     setLoadingHistory(true);
-    const { data, error } = await supabase
-      .from('quiz_attempts')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('unit_id', 'unit-1')
-      .order('attempt_number', { ascending: false });
 
-    if (!error && data) {
-      setAttempts(data as QuizAttempt[]);
+    const [attemptsRes, reflectionRes] = await Promise.all([
+      supabase
+        .from('quiz_attempts')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('unit_id', 'unit-1')
+        .order('attempt_number', { ascending: false }),
+      supabase
+        .from('unit_reflections')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('unit_id', 'unit-1')
+        .maybeSingle(),
+    ]);
+
+    if (!attemptsRes.error && attemptsRes.data) {
+      setAttempts(attemptsRes.data as QuizAttempt[]);
     }
+
+    if (!reflectionRes.error && reflectionRes.data) {
+      const saved = reflectionRes.data as UnitReflection;
+      setReflection(saved);
+      setAnswer1(saved.answer_1);
+      setAnswer2(saved.answer_2);
+    }
+
     setLoadingHistory(false);
   }, [user]);
 
   useEffect(() => {
-    void loadAttempts();
-  }, [loadAttempts]);
+    void loadValoracionData();
+  }, [loadValoracionData]);
 
   // Cronómetro en vivo mientras se juega
   useEffect(() => {
@@ -101,6 +137,8 @@ export const ValoracionPage: React.FC = () => {
   const attemptsUsed = attempts.length;
   const attemptsRemaining = Math.max(0, MAX_QUIZ_ATTEMPTS - attemptsUsed);
   const limitReached = attemptsUsed >= MAX_QUIZ_ATTEMPTS;
+  const hasAnyAttempt = attemptsUsed >= 1 || lastAttemptResult !== null;
+  const isValoracionFullyCompleted = progressMap.valoracion && Boolean(reflection);
 
   const bestScore = attempts.length > 0 ? Math.max(...attempts.map((a) => a.score)) : null;
   const bestAttempt =
@@ -118,7 +156,6 @@ export const ValoracionPage: React.FC = () => {
     if (!user) return;
     setCheckingLimit(true);
 
-    // Verificar directamente en Supabase para evitar reinicios al recargar
     const { data: latestAttempts, error } = await supabase
       .from('quiz_attempts')
       .select('*')
@@ -164,7 +201,6 @@ export const ValoracionPage: React.FC = () => {
     const score = Math.round((finalCorrectCount / totalQuestions) * 100);
     setSavingAttempt(true);
 
-    // Reconfirmar intentos actuales desde Supabase antes de insertar
     const { data: existingRows } = await supabase
       .from('quiz_attempts')
       .select('attempt_number')
@@ -174,7 +210,7 @@ export const ValoracionPage: React.FC = () => {
     const currentRows = existingRows || [];
     if (currentRows.length >= MAX_QUIZ_ATTEMPTS) {
       setSavingAttempt(false);
-      await loadAttempts();
+      await loadValoracionData();
       setPhase('intro');
       showToast('Ya habías completado el máximo de 2 intentos permitidos.', 'warning');
       return;
@@ -207,8 +243,11 @@ export const ValoracionPage: React.FC = () => {
     if (attemptError) {
       showToast('No se pudo guardar el intento en el servidor.', 'error');
     } else {
-      await markCompleted('valoracion');
-      await loadAttempts();
+      // Valoracion se marca completada solo cuando tambien existe la reflexion guardada
+      if (reflection) {
+        await markCompleted('valoracion');
+      }
+      await loadValoracionData();
     }
 
     setSavingAttempt(false);
@@ -224,6 +263,244 @@ export const ValoracionPage: React.FC = () => {
     }
   };
 
+  const handleSaveReflection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    const clean1 = answer1.trim();
+    const clean2 = answer2.trim();
+
+    if (clean1.length < REFLECTION_MIN_CHARS) {
+      showToast(
+        `Por favor escribe una respuesta un poco más completa en la Pregunta 1 (mínimo ${REFLECTION_MIN_CHARS} caracteres).`,
+        'warning'
+      );
+      return;
+    }
+
+    if (clean2.length < REFLECTION_MIN_CHARS) {
+      showToast(
+        `Por favor escribe una respuesta un poco más completa en la Pregunta 2 (mínimo ${REFLECTION_MIN_CHARS} caracteres).`,
+        'warning'
+      );
+      return;
+    }
+
+    setSavingReflection(true);
+    const { data, error } = await supabase
+      .from('unit_reflections')
+      .upsert(
+        {
+          user_id: user.id,
+          unit_id: 'unit-1',
+          answer_1: clean1,
+          answer_2: clean2,
+        },
+        { onConflict: 'user_id,unit_id' }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      setSavingReflection(false);
+      showToast(`No se pudo guardar tu reflexión: ${error.message}`, 'error');
+      return;
+    }
+
+    const wasEdit = Boolean(reflection);
+    setReflection(data as UnitReflection);
+    setAnswer1(clean1);
+    setAnswer2(clean2);
+    setEditingReflection(false);
+
+    if (hasAnyAttempt) {
+      await markCompleted('valoracion');
+    }
+
+    setSavingReflection(false);
+    showToast(
+      wasEdit
+        ? '¡Tu reflexión se actualizó correctamente!'
+        : '¡Excelente! Reflexión guardada y etapa Valoración completada.',
+      'success'
+    );
+  };
+
+  const renderReflectionSection = () => {
+    if (!hasAnyAttempt || phase === 'playing') return null;
+
+    const showForm = !reflection || editingReflection;
+
+    return (
+      <section className="quizizz-card rounded-3xl overflow-hidden border-2 border-fuchsia-400/45 shadow-xl animate-pop">
+        <div className="bg-gradient-to-r from-fuchsia-600 via-purple-600 to-indigo-700 p-5 sm:p-6 text-white">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-black/20 flex items-center justify-center shrink-0 mt-0.5">
+                <HeartHandshake className="w-6 h-6 text-amber-300" />
+              </div>
+              <div>
+                <span className="inline-block text-[11px] font-extrabold uppercase tracking-wider text-amber-300 mb-0.5">
+                  Paso obligatorio para completar Valoración
+                </span>
+                <h2 className="text-lg sm:text-xl font-extrabold">{REFLECTION_TITLE}</h2>
+                <p className="text-purple-100 text-xs sm:text-sm mt-1 leading-relaxed">
+                  {REFLECTION_SUBTITLE}
+                </p>
+              </div>
+            </div>
+
+            {reflection && !editingReflection && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-400 text-slate-950 text-xs font-extrabold shrink-0">
+                <CheckCircle2 className="w-4 h-4" />
+                Reflexión enviada
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="p-5 sm:p-7">
+          {showForm ? (
+            <form onSubmit={(e) => void handleSaveReflection(e)} className="space-y-5">
+              <div>
+                <label
+                  htmlFor="reflection-q1"
+                  className="block text-sm font-extrabold text-white leading-snug mb-2"
+                >
+                  {REFLECTION_Q1}
+                </label>
+                <textarea
+                  id="reflection-q1"
+                  rows={4}
+                  maxLength={1200}
+                  value={answer1}
+                  onChange={(e) => setAnswer1(e.target.value)}
+                  placeholder={REFLECTION_PLACEHOLDER}
+                  className="w-full p-3.5 rounded-2xl border border-purple-400/35 bg-[#160C28] focus:border-amber-400 focus:ring-2 focus:ring-amber-400/25 outline-none text-sm text-white placeholder:text-purple-300/40 resize-y transition-all"
+                  required
+                />
+                <div className="flex items-center justify-between mt-1.5 text-[11px]">
+                  <span
+                    className={
+                      answer1.trim().length >= REFLECTION_MIN_CHARS
+                        ? 'text-emerald-300 font-bold'
+                        : 'text-purple-300/70'
+                    }
+                  >
+                    Mínimo {REFLECTION_MIN_CHARS} caracteres
+                  </span>
+                  <span className="text-purple-300/70">{answer1.trim().length} caracteres</span>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="reflection-q2"
+                  className="block text-sm font-extrabold text-white leading-snug mb-2"
+                >
+                  {REFLECTION_Q2}
+                </label>
+                <textarea
+                  id="reflection-q2"
+                  rows={4}
+                  maxLength={1200}
+                  value={answer2}
+                  onChange={(e) => setAnswer2(e.target.value)}
+                  placeholder={REFLECTION_PLACEHOLDER}
+                  className="w-full p-3.5 rounded-2xl border border-purple-400/35 bg-[#160C28] focus:border-amber-400 focus:ring-2 focus:ring-amber-400/25 outline-none text-sm text-white placeholder:text-purple-300/40 resize-y transition-all"
+                  required
+                />
+                <div className="flex items-center justify-between mt-1.5 text-[11px]">
+                  <span
+                    className={
+                      answer2.trim().length >= REFLECTION_MIN_CHARS
+                        ? 'text-emerald-300 font-bold'
+                        : 'text-purple-300/70'
+                    }
+                  >
+                    Mínimo {REFLECTION_MIN_CHARS} caracteres
+                  </span>
+                  <span className="text-purple-300/70">{answer2.trim().length} caracteres</span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-1">
+                {editingReflection && reflection && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAnswer1(reflection.answer_1);
+                      setAnswer2(reflection.answer_2);
+                      setEditingReflection(false);
+                    }}
+                    className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-purple-100 text-sm font-bold cursor-pointer transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={savingReflection}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-emerald-400 hover:bg-emerald-300 disabled:opacity-60 text-slate-950 font-extrabold text-sm sm:text-base border-b-4 border-emerald-600 active:border-b-0 active:translate-y-1 transition-all cursor-pointer shadow-lg"
+                >
+                  {savingReflection ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Guardando reflexión...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      <span>
+                        {reflection ? 'Actualizar mi reflexión' : 'Enviar mi reflexión'}
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-4">
+              <div className="rounded-2xl bg-[#160C28] border border-purple-400/25 p-4 space-y-1.5">
+                <p className="text-xs font-extrabold text-amber-300">{REFLECTION_Q1}</p>
+                <p className="text-sm text-purple-50 leading-relaxed whitespace-pre-wrap">
+                  {reflection.answer_1}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-[#160C28] border border-purple-400/25 p-4 space-y-1.5">
+                <p className="text-xs font-extrabold text-amber-300">{REFLECTION_Q2}</p>
+                <p className="text-sm text-purple-50 leading-relaxed whitespace-pre-wrap">
+                  {reflection.answer_2}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <span className="text-xs text-purple-300/75">
+                  Guardado el{' '}
+                  {new Date(reflection.updated_at).toLocaleString('es-ES', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
+                  })}
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setEditingReflection(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-purple-400/25 text-purple-100 text-xs font-bold transition-colors cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Editar mi reflexión</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  };
+
   return (
     <UnitActivityGuard activityKey="valoracion">
       <div className="max-w-3xl mx-auto space-y-6">
@@ -236,16 +513,20 @@ export const ValoracionPage: React.FC = () => {
             <span>Volver a UNIT 1</span>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-purple-400/25 text-purple-100 text-xs font-extrabold">
               Intentos: {attemptsUsed} de {MAX_QUIZ_ATTEMPTS}
             </span>
-            {attempts.length > 0 && (
+            {isValoracionFullyCompleted ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-extrabold">
                 <CheckCircle2 className="w-4 h-4" />
-                Completado
+                Valoración completada
               </span>
-            )}
+            ) : hasAnyAttempt && !reflection ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-xs font-extrabold">
+                Falta reflexión
+              </span>
+            ) : null}
           </div>
         </div>
 
@@ -263,13 +544,14 @@ export const ValoracionPage: React.FC = () => {
                       UNIT 1 • Etapa 4 de 4
                     </p>
                     <h1 className="text-2xl sm:text-3xl font-extrabold">
-                      Valoración Final (Cuestionario)
+                      Valoración Final (Cuestionario + Reflexión)
                     </h1>
                   </div>
                 </div>
                 <p className="text-slate-900/90 font-medium text-sm sm:text-base mt-2">
-                  Responde {totalQuestions} preguntas sobre ropa y colores. Tienes un máximo de{' '}
-                  <strong>2 intentos</strong> para demostrar lo aprendido y lograr tu mejor puntaje.
+                  Responde {totalQuestions} preguntas sobre ropa y colores (máximo{' '}
+                  <strong>2 intentos</strong>) y al terminar completa tus 2 preguntas de reflexión
+                  personal para finalizar la unidad.
                 </p>
               </div>
 
@@ -314,8 +596,10 @@ export const ValoracionPage: React.FC = () => {
                     <p className="text-sm text-purple-100/85">
                       Tu mejor puntaje registrado fue{' '}
                       <strong className="text-emerald-300">{bestScore}/100</strong>
-                      {bestAttempt ? ` en ${bestAttempt.duration_seconds} segundos` : ''}. Tu
-                      profesor ya puede ver tus resultados.
+                      {bestAttempt ? ` en ${bestAttempt.duration_seconds} segundos` : ''}.{' '}
+                      {reflection
+                        ? 'Tu reflexión también ya está guardada.'
+                        : 'Recuerda completar tus 2 preguntas de reflexión abajo para marcar esta etapa como completada.'}
                     </p>
                     <div className="pt-1">
                       <Link
@@ -363,6 +647,9 @@ export const ValoracionPage: React.FC = () => {
                 )}
               </div>
             </section>
+
+            {/* Reflexión personal (visible tras completar al menos 1 intento) */}
+            {!loadingHistory && renderReflectionSection()}
 
             {/* Detalle de intentos realizados */}
             {!loadingHistory && attempts.length > 0 && (
@@ -415,7 +702,6 @@ export const ValoracionPage: React.FC = () => {
         {/* PANTALLA JUGANDO */}
         {phase === 'playing' && currentQuestion && (
           <section className="quizizz-card rounded-3xl p-5 sm:p-8 space-y-6 animate-pop">
-            {/* HUD superior */}
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1 rounded-xl bg-fuchsia-500/20 border border-fuchsia-400/30 text-fuchsia-200 text-xs font-extrabold">
@@ -445,7 +731,6 @@ export const ValoracionPage: React.FC = () => {
               heightClass="h-3"
             />
 
-            {/* Consigna en español + contenido en inglés */}
             <div className="bg-[#160C28] rounded-2xl border border-purple-400/25 p-5 sm:p-6 text-center space-y-4">
               <span className="inline-block px-3 py-1 rounded-full bg-purple-900/70 border border-purple-400/25 text-[11px] font-extrabold uppercase tracking-wide text-cyan-300">
                 {currentQuestion.type === 'visual'
@@ -477,7 +762,6 @@ export const ValoracionPage: React.FC = () => {
               )}
             </div>
 
-            {/* 4 opciones estilo Quizizz */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {currentQuestion.options.map((option, idx) => {
                 const isAnswered = selectedOption !== null;
@@ -524,7 +808,6 @@ export const ValoracionPage: React.FC = () => {
               })}
             </div>
 
-            {/* Retroalimentación inmediata en español */}
             {selectedOption !== null && (
               <div
                 className={`rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-pop border ${
@@ -559,102 +842,108 @@ export const ValoracionPage: React.FC = () => {
           </section>
         )}
 
-        {/* PANTALLA RESULTADOS */}
+        {/* PANTALLA RESULTADOS + REFLEXIÓN */}
         {phase === 'results' && lastAttemptResult && (
-          <section className="quizizz-card rounded-3xl p-6 sm:p-8 text-center space-y-6 animate-pop">
-            <div className="mx-auto w-20 h-20 rounded-3xl bg-amber-400 text-slate-950 flex items-center justify-center shadow-lg">
-              <Trophy className="w-10 h-10" />
-            </div>
-
-            <div>
-              <span className="inline-block px-3.5 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/35 text-fuchsia-200 text-xs font-extrabold mb-2">
-                Intento {lastAttemptResult.attemptNumber} de {MAX_QUIZ_ATTEMPTS} guardado
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-                {lastAttemptResult.score >= 80
-                  ? '¡Excelente trabajo!'
-                  : lastAttemptResult.score >= 60
-                    ? '¡Buen trabajo! Vas por buen camino'
-                    : '¡Sigue intentando!'}
-              </h1>
-              <p className="text-sm text-purple-200/80 mt-1">
-                {savingAttempt
-                  ? 'Guardando tu resultado en el sistema...'
-                  : lastAttemptResult.attemptNumber >= MAX_QUIZ_ATTEMPTS
-                    ? 'Ya completaste tus 2 intentos permitidos. Este es tu resumen final.'
-                    : 'Te queda 1 intento disponible por si deseas mejorar tu puntaje.'}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-xl mx-auto">
-              <div className="rounded-2xl bg-[#160C28] border border-purple-400/25 p-4">
-                <p className="text-3xl font-extrabold text-amber-300">
-                  {lastAttemptResult.score}/100
-                </p>
-                <p className="text-xs font-bold text-purple-200/80 mt-1">Nota de este intento</p>
+          <div className="space-y-6">
+            <section className="quizizz-card rounded-3xl p-6 sm:p-8 text-center space-y-6 animate-pop">
+              <div className="mx-auto w-20 h-20 rounded-3xl bg-amber-400 text-slate-950 flex items-center justify-center shadow-lg">
+                <Trophy className="w-10 h-10" />
               </div>
-              <div className="rounded-2xl bg-[#160C28] border border-purple-400/25 p-4">
-                <p className="text-3xl font-extrabold text-emerald-400">
-                  {lastAttemptResult.correct}/{lastAttemptResult.total}
-                </p>
-                <p className="text-xs font-bold text-purple-200/80 mt-1">Respuestas correctas</p>
-              </div>
-              <div className="rounded-2xl bg-[#160C28] border border-purple-400/25 p-4">
-                <p className="text-3xl font-extrabold text-cyan-300">
-                  {lastAttemptResult.seconds}s
-                </p>
-                <p className="text-xs font-bold text-purple-200/80 mt-1">Tiempo total</p>
-              </div>
-            </div>
 
-            {/* Si ya completó los 2 intentos, mostrar resumen de ambos y mejor puntaje */}
-            {!savingAttempt && attempts.length >= MAX_QUIZ_ATTEMPTS && (
-              <div className="bg-[#160C28] rounded-2xl border border-emerald-400/35 p-5 text-left space-y-3 max-w-xl mx-auto">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-emerald-300">
-                    <Award className="w-4 h-4" />
-                    Mejor puntaje obtenido: {bestScore}/100
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-300">
-                    <Lock className="w-3.5 h-3.5" />2 de 2 intentos usados
-                  </span>
+              <div>
+                <span className="inline-block px-3.5 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/35 text-fuchsia-200 text-xs font-extrabold mb-2">
+                  Intento {lastAttemptResult.attemptNumber} de {MAX_QUIZ_ATTEMPTS} guardado
+                </span>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
+                  {lastAttemptResult.score >= 80
+                    ? '¡Excelente trabajo!'
+                    : lastAttemptResult.score >= 60
+                      ? '¡Buen trabajo! Vas por buen camino'
+                      : '¡Sigue intentando!'}
+                </h1>
+                <p className="text-sm text-purple-200/80 mt-1">
+                  {savingAttempt
+                    ? 'Guardando tu resultado en el sistema...'
+                    : !reflection
+                      ? '¡Ya casi terminas! Responde las 2 preguntas de reflexión de abajo para marcar Valoración como completada.'
+                      : lastAttemptResult.attemptNumber >= MAX_QUIZ_ATTEMPTS
+                        ? 'Ya completaste tus 2 intentos permitidos y tu reflexión está guardada.'
+                        : 'Tu reflexión ya está guardada. Te queda 1 intento disponible si deseas mejorar tu nota.'}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-xl mx-auto">
+                <div className="rounded-2xl bg-[#160C28] border border-purple-400/25 p-4">
+                  <p className="text-3xl font-extrabold text-amber-300">
+                    {lastAttemptResult.score}/100
+                  </p>
+                  <p className="text-xs font-bold text-purple-200/80 mt-1">Nota de este intento</p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {attempts.map((a) => (
-                    <div
-                      key={a.id}
-                      className="rounded-xl bg-[#24143D] border border-purple-400/20 p-3 text-xs flex items-center justify-between"
-                    >
-                      <span className="font-bold text-white">Intento {a.attempt_number}</span>
-                      <span className="font-extrabold text-amber-300">{a.score}/100</span>
-                      <span className="text-purple-200">{a.duration_seconds}s</span>
-                    </div>
-                  ))}
+                <div className="rounded-2xl bg-[#160C28] border border-purple-400/25 p-4">
+                  <p className="text-3xl font-extrabold text-emerald-400">
+                    {lastAttemptResult.correct}/{lastAttemptResult.total}
+                  </p>
+                  <p className="text-xs font-bold text-purple-200/80 mt-1">Respuestas correctas</p>
+                </div>
+                <div className="rounded-2xl bg-[#160C28] border border-purple-400/25 p-4">
+                  <p className="text-3xl font-extrabold text-cyan-300">
+                    {lastAttemptResult.seconds}s
+                  </p>
+                  <p className="text-xs font-bold text-purple-200/80 mt-1">Tiempo total</p>
                 </div>
               </div>
-            )}
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-              {!savingAttempt && attempts.length < MAX_QUIZ_ATTEMPTS && (
-                <button
-                  type="button"
-                  disabled={checkingLimit}
-                  onClick={() => void startQuiz()}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-sm sm:text-base border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 transition-all cursor-pointer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Realizar 2.º intento (Te queda 1)</span>
-                </button>
+              {!savingAttempt && attempts.length >= MAX_QUIZ_ATTEMPTS && (
+                <div className="bg-[#160C28] rounded-2xl border border-emerald-400/35 p-5 text-left space-y-3 max-w-xl mx-auto">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-sm font-extrabold text-emerald-300">
+                      <Award className="w-4 h-4" />
+                      Mejor puntaje obtenido: {bestScore}/100
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-purple-300">
+                      <Lock className="w-3.5 h-3.5" />2 de 2 intentos usados
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {attempts.map((a) => (
+                      <div
+                        key={a.id}
+                        className="rounded-xl bg-[#24143D] border border-purple-400/20 p-3 text-xs flex items-center justify-between"
+                      >
+                        <span className="font-bold text-white">Intento {a.attempt_number}</span>
+                        <span className="font-extrabold text-amber-300">{a.score}/100</span>
+                        <span className="text-purple-200">{a.duration_seconds}s</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
 
-              <Link
-                to="/unit/1"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-purple-400/30 text-white font-bold text-sm sm:text-base transition-all"
-              >
-                <span>Volver a UNIT 1</span>
-              </Link>
-            </div>
-          </section>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+                {!savingAttempt && attempts.length < MAX_QUIZ_ATTEMPTS && (
+                  <button
+                    type="button"
+                    disabled={checkingLimit}
+                    onClick={() => void startQuiz()}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-sm sm:text-base border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 transition-all cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Realizar 2.º intento (Te queda 1)</span>
+                  </button>
+                )}
+
+                <Link
+                  to="/unit/1"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-purple-400/30 text-white font-bold text-sm sm:text-base transition-all"
+                >
+                  <span>Volver a UNIT 1</span>
+                </Link>
+              </div>
+            </section>
+
+            {/* Sección de Reflexión personal justo debajo de los resultados */}
+            {!savingAttempt && renderReflectionSection()}
+          </div>
         )}
       </div>
     </UnitActivityGuard>

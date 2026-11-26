@@ -2,8 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { UnitSettings, YoutubeLink } from '../types/database';
 
+export const DEFAULT_WORDWALL_URL = 'https://wordwall.net/play/124803/034/685?wwmethod=link';
+
 const FALLBACK_SETTINGS: UnitSettings = {
   unit_id: 'unit-1',
+  practice_wordwall_url: DEFAULT_WORDWALL_URL,
   practice_url: 'https://www.gamestolearnenglish.com/clothes-game/',
   theory_pdf_url: null,
   youtube_links: [
@@ -64,6 +67,8 @@ export function useUnitSettings(unitId = 'unit-1') {
     if (data) {
       setSettings({
         unit_id: data.unit_id,
+        practice_wordwall_url:
+          data.practice_wordwall_url || FALLBACK_SETTINGS.practice_wordwall_url,
         practice_url: data.practice_url || FALLBACK_SETTINGS.practice_url,
         theory_pdf_url: data.theory_pdf_url || null,
         youtube_links: sanitizeYoutubeLinks(data.youtube_links),

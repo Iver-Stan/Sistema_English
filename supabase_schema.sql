@@ -64,10 +64,23 @@ create table if not exists public.wall_posts (
 -- Configuracion de enlaces externos editables por el profesor sin tocar codigo
 create table if not exists public.unit_settings (
   unit_id text primary key,
+  practice_wordwall_url text not null default 'https://wordwall.net/play/124803/034/685?wwmethod=link',
   practice_url text not null,
   theory_pdf_url text,
   youtube_links jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now()
+);
+
+-- Reflexiones personales de Valoracion (1 registro por estudiante y unidad)
+create table if not exists public.unit_reflections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  unit_id text not null default 'unit-1',
+  answer_1 text not null check (char_length(trim(answer_1)) >= 10),
+  answer_2 text not null check (char_length(trim(answer_2)) >= 10),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, unit_id)
 );
 
 -- Indices de rendimiento
@@ -195,6 +208,11 @@ create trigger trg_unit_settings_updated_at
   before update on public.unit_settings
   for each row execute function public.set_updated_at();
 
+drop trigger if exists trg_unit_reflections_updated_at on public.unit_reflections;
+create trigger trg_unit_reflections_updated_at
+  before update on public.unit_reflections
+  for each row execute function public.set_updated_at();
+
 -- ----------------------------------------------------------------------------
 -- 4. ROW LEVEL SECURITY (RLS)
 -- ----------------------------------------------------------------------------
@@ -204,6 +222,7 @@ alter table public.activity_progress enable row level security;
 alter table public.quiz_attempts enable row level security;
 alter table public.wall_posts enable row level security;
 alter table public.unit_settings enable row level security;
+alter table public.unit_reflections enable row level security;
 
 -- PROFILES
 drop policy if exists "profiles_select_own_or_admin" on public.profiles;
@@ -292,13 +311,31 @@ create policy "settings_admin_delete"
   on public.unit_settings for delete
   using (public.is_admin());
 
+-- UNIT REFLECTIONS
+drop policy if exists "reflections_select_own_or_admin" on public.unit_reflections;
+create policy "reflections_select_own_or_admin"
+  on public.unit_reflections for select
+  using (auth.uid() = user_id or public.is_admin());
+
+drop policy if exists "reflections_insert_own" on public.unit_reflections;
+create policy "reflections_insert_own"
+  on public.unit_reflections for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "reflections_update_own" on public.unit_reflections;
+create policy "reflections_update_own"
+  on public.unit_reflections for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 -- ----------------------------------------------------------------------------
 -- 5. VALORES INICIALES PARA UNIT 1: CLOTHES AND COLORS
 -- ----------------------------------------------------------------------------
 
-insert into public.unit_settings (unit_id, practice_url, theory_pdf_url, youtube_links)
+insert into public.unit_settings (unit_id, practice_wordwall_url, practice_url, theory_pdf_url, youtube_links)
 values (
   'unit-1',
+  'https://wordwall.net/play/124803/034/685?wwmethod=link',
   'https://www.gamestolearnenglish.com/clothes-game/',
   null,
   '[

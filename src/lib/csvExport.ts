@@ -21,6 +21,9 @@ export function exportStudentsCsv(rows: StudentSummary[]): void {
     'Intentos Valoracion (max 2)',
     'Tiempo Mejor Intento (s)',
     'Tiempo Ultimo Intento (s)',
+    'Reflexion enviada',
+    'Reflexion - Pregunta 1',
+    'Reflexion - Pregunta 2',
   ];
 
   const lines = rows.map((row) => [
@@ -35,6 +38,9 @@ export function exportStudentsCsv(rows: StudentSummary[]): void {
     `${row.attemptsCount}/2`,
     row.bestAttemptSeconds !== null ? row.bestAttemptSeconds : '-',
     row.lastAttemptSeconds !== null ? row.lastAttemptSeconds : '-',
+    row.reflection ? 'Si' : 'Pendiente',
+    row.reflection?.answer_1 ?? '',
+    row.reflection?.answer_2 ?? '',
   ]);
 
   const csvContent =

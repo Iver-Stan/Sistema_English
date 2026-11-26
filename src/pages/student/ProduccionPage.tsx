@@ -277,9 +277,10 @@ export const ProduccionPage: React.FC = () => {
             </div>
           </div>
           <p className="text-pink-50 text-sm sm:text-base mt-2">
-            Sube una foto de tu outfit favorito o de una prenda de vestir y escribe una frase corta
-            en inglés describiendo su color. Al subir tu primer aporte, se desbloqueará la etapa
-            final: <strong>Valoración</strong>.
+            Sube una foto tuya o de tu personaje favorito con un outfit y escribe un párrafo corto en
+            inglés describiendo qué vistes o qué viste tu personaje, mencionando cada prenda y su
+            color. Al subir tu primer aporte, se desbloqueará la etapa final:{' '}
+            <strong>Valoración</strong>.
           </p>
         </section>
 

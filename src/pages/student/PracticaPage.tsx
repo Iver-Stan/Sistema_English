@@ -69,8 +69,9 @@ export const PracticaPage: React.FC = () => {
             </div>
           </div>
           <p className="text-cyan-50 text-sm sm:text-base mt-2">
-            ¡Es hora de entrenar tu vocabulario jugando! Abre el juego de inglés en una nueva pestaña
-            para practicar ropa y colores, y luego marca esta etapa para desbloquear Teoría.
+            ¡Exploremos lo que ya sabes jugando! Abre los juegos en una nueva pestaña para descubrir
+            y experimentar qué prendas y colores en inglés ya reconoces, y luego marca esta etapa
+            para desbloquear Teoría.
           </p>
         </div>
 
@@ -88,8 +89,9 @@ export const PracticaPage: React.FC = () => {
               <h2 className="font-extrabold text-amber-300 text-base">Instrucciones rápidas:</h2>
               <ol className="text-sm text-purple-100/85 mt-1.5 space-y-1 list-decimal list-inside">
                 <li>
-                  Presiona <strong className="text-white">&quot;Empecemos a jugar&quot;</strong> (se
-                  abrirá en una nueva pestaña).
+                  Empieza con <strong className="text-white">Actividad 1 (Wordwall)</strong> y luego
+                  continúa con <strong className="text-white">Actividad 2</strong> (ambas se abren
+                  en una nueva pestaña).
                 </li>
                 <li>Juega una o más rondas identificando prendas y colores en inglés.</li>
                 <li>Al terminar, regresa aquí y marca la actividad como completada.</li>
@@ -97,26 +99,42 @@ export const PracticaPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-4 pt-2">
+          <div className="flex flex-col items-center gap-3.5 pt-2">
+            {/* Botón 1 (Nuevo, arriba/primero): Wordwall */}
+            <a
+              href={settings.practice_wordwall_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setClickedPlay(true)}
+              className={`w-full sm:w-[440px] inline-flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-base sm:text-lg border-b-4 border-amber-600 active:border-b-0 active:translate-y-1 transition-all shadow-lg ${
+                settingsLoading ? 'pointer-events-none opacity-60' : ''
+              }`}
+            >
+              <Sparkles className="w-5 h-5 shrink-0" />
+              <span>Actividad 1: Empecemos a jugar (Wordwall)</span>
+              <ExternalLink className="w-5 h-5 shrink-0" />
+            </a>
+
+            {/* Botón 2 (Existente, debajo/segundo): Juego de vocabulario */}
             <a
               href={settings.practice_url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setClickedPlay(true)}
-              className={`w-full sm:w-auto inline-flex items-center justify-center gap-3 px-8 py-4 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-extrabold text-lg border-b-4 border-cyan-600 active:border-b-0 active:translate-y-1 transition-all shadow-lg ${
+              className={`w-full sm:w-[440px] inline-flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-extrabold text-base sm:text-lg border-b-4 border-cyan-600 active:border-b-0 active:translate-y-1 transition-all shadow-lg ${
                 settingsLoading ? 'pointer-events-none opacity-60' : ''
               }`}
             >
-              <Sparkles className="w-5 h-5" />
-              <span>Empecemos a jugar</span>
-              <ExternalLink className="w-5 h-5" />
+              <Gamepad2 className="w-5 h-5 shrink-0" />
+              <span>Actividad 2: Más práctica de vocabulario</span>
+              <ExternalLink className="w-5 h-5 shrink-0" />
             </a>
 
             <div className="w-full border-t border-purple-400/20 pt-5 mt-2 flex flex-col items-center text-center gap-3">
               <p className="text-xs sm:text-sm text-purple-200/80">
                 {clickedPlay
                   ? '¡Genial! Cuando termines de jugar, guarda tu avance para desbloquear Teoría:'
-                  : '¿Ya jugaste en la otra pestaña? Registra tu avance abajo:'}
+                  : '¿Ya jugaste en las otras pestañas? Registra tu avance abajo:'}
               </p>
 
               {isCompleted ? (

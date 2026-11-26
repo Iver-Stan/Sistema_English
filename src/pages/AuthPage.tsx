@@ -16,7 +16,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { validateEmail } from '../lib/authHelpers';
-import { ClothingSvg } from '../components/illustrations/ClothingSvg';
+import logoSimonBolivar from '../assets/logos/logo-simon-bolivar.png';
+import logoEsfm from '../assets/logos/logo-esfm.jpeg';
 
 type AuthMode = 'login' | 'register' | 'forgot';
 
@@ -138,21 +139,29 @@ export const AuthPage: React.FC = () => {
             </p>
           </div>
 
-          {/* Vitrina SVG */}
-          <div className="relative z-10 mt-8 bg-black/25 backdrop-blur-xs rounded-2xl p-4 border border-white/15">
-            <div className="flex items-center justify-around gap-2">
-              <div className="bg-white rounded-2xl p-2 shadow-md animate-float-subtle">
-                <ClothingSvg garment="tshirt" color="#EF4444" className="w-14 h-14" />
+          {/* Insignias institucionales (E.S.F.M. Simón Bolívar) */}
+          <div className="relative z-10 mt-8 bg-black/25 backdrop-blur-xs rounded-2xl p-4 sm:p-5 border border-white/15">
+            <div className="flex items-center justify-center gap-4 sm:gap-5">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white/95 p-2 shadow-lg ring-2 ring-white/30 flex items-center justify-center shrink-0">
+                <img
+                  src={logoSimonBolivar}
+                  alt="Escudo Escuela Superior de Formación de Maestros Simón Bolívar"
+                  className="max-h-full max-w-full object-contain"
+                />
               </div>
-              <div className="bg-white rounded-2xl p-2 shadow-md">
-                <ClothingSvg garment="jeans" color="#2563EB" className="w-14 h-14" />
-              </div>
-              <div className="bg-white rounded-2xl p-2 shadow-md animate-float-subtle">
-                <ClothingSvg garment="sneakers" color="#EC4899" className="w-14 h-14" />
+              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white/95 p-1.5 shadow-lg ring-2 ring-white/30 flex items-center justify-center shrink-0 overflow-hidden">
+                <img
+                  src={logoEsfm}
+                  alt="Logo E.S.F.M. Simón Bolívar - Comunicación y Lenguajes - Inglés"
+                  className="max-h-full max-w-full object-contain rounded-full"
+                />
               </div>
             </div>
-            <p className="text-center text-xs font-extrabold text-amber-300 tracking-wide mt-3">
-              UNIT 1: Clothes and Colors
+            <p className="text-center text-xs font-extrabold text-amber-300 tracking-wide mt-3.5">
+              E.S.F.M. &quot;Simón Bolívar&quot; • La Paz - Bolivia
+            </p>
+            <p className="text-center text-[11px] font-semibold text-purple-100/85 mt-0.5">
+              Comunicación y Lenguajes — Inglés
             </p>
           </div>
         </div>
